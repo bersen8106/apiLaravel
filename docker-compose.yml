@@ -1,0 +1,58 @@
+#version: '3'
+
+services:
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./:/var/www
+      - ./_docker/nginx/conf.d/:/etc/nginx/conf.d/
+    ports:
+      - "8876:80"
+    depends_on:
+      - app
+      - vite # Зависимость от Vite
+    container_name: apiLaravel_nginx
+
+  app:
+    build:
+      context: .
+      dockerfile: _docker/app/Dockerfile
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - db
+    container_name: apiLaravel_app
+    # Переменные окружения для Vite
+    environment:
+      VITE_DEV_SERVER_HOST: vite
+      VITE_DEV_SERVER_PORT: 5173
+
+  db:
+    image: mysql:8.0
+    restart: always
+    volumes:
+      - ./tmp/db:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: apiLaravel_db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8108:3306"
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    container_name: apiLaravel_db
+
+  # ДОБАВЛЕН СЕРВИС VITE
+  vite:
+    build:
+      context: .
+      dockerfile: _docker/app/Dockerfile # Используем тот же Dockerfile
+    volumes:
+      - ./:/var/www
+      - /var/www/node_modules # Избегаем конфликтов с хостовой node_modules
+    working_dir: /var/www
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "5173:5173" # Пробрасываем порт Vite наружу
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0 # Важно для Docker
+    container_name: apiLaravel_vite
